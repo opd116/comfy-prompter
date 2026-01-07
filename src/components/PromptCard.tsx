@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Copy, Check, Star, Play } from "lucide-react";
+import { Copy, Check, Star, Play, Images } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Prompt } from "@/lib/prompts-data";
 import { toast } from "sonner";
+import { PromptFillDialog } from "./PromptFillDialog";
+import { ImageResultsDialog } from "./ImageResultsDialog";
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -10,8 +12,19 @@ interface PromptCardProps {
   onToggleFavorite: (id: string) => void;
 }
 
+// Check if prompt has placeholders
+const hasPlaceholders = (content: string): boolean => {
+  return /\[([^\]]+)\]/.test(content);
+};
+
 export const PromptCard = ({ prompt, index, onToggleFavorite }: PromptCardProps) => {
   const [copied, setCopied] = useState(false);
+  const [showFillDialog, setShowFillDialog] = useState(false);
+  const [showImageResults, setShowImageResults] = useState(false);
+
+  const hasVisualPreview = prompt.type === "image" || prompt.type === "video";
+  const promptHasPlaceholders = hasPlaceholders(prompt.content);
+  const hasGeneratedImages = prompt.generatedImages && prompt.generatedImages.length > 0;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(prompt.content);
@@ -23,19 +36,31 @@ export const PromptCard = ({ prompt, index, onToggleFavorite }: PromptCardProps)
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const hasVisualPreview = prompt.type === "image" || prompt.type === "video";
+  const handleCardClick = () => {
+    if (promptHasPlaceholders) {
+      setShowFillDialog(true);
+    } else {
+      handleCopy();
+    }
+  };
+
+  const handleViewResults = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowImageResults(true);
+  };
 
   return (
-    <div
-      style={{ animationDelay: `${index * 50}ms` }}
-      className={cn(
-        "group relative rounded-2xl border border-border/30 overflow-hidden",
-        "bg-card/60 backdrop-blur-xl",
-        "hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5",
-        "transition-all duration-300 animate-slide-up cursor-pointer"
-      )}
-      onClick={handleCopy}
-    >
+    <>
+      <div
+        style={{ animationDelay: `${index * 50}ms` }}
+        className={cn(
+          "group relative rounded-2xl border border-border/30 overflow-hidden",
+          "bg-card/60 backdrop-blur-xl",
+          "hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5",
+          "transition-all duration-300 animate-slide-up cursor-pointer"
+        )}
+        onClick={handleCardClick}
+      >
       {/* Visual Preview for Image/Video */}
       {hasVisualPreview && prompt.previewImage && (
         <div className="relative aspect-video overflow-hidden">
@@ -56,13 +81,26 @@ export const PromptCard = ({ prompt, index, onToggleFavorite }: PromptCardProps)
           )}
 
           {/* Type badge */}
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 flex gap-2">
             <span className={cn(
               "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-md",
               "bg-card/80 backdrop-blur-sm text-foreground"
             )}>
               {prompt.type}
             </span>
+            {hasGeneratedImages && (
+              <button
+                onClick={handleViewResults}
+                className={cn(
+                  "px-2 py-1 text-[10px] font-semibold rounded-md",
+                  "bg-primary/80 backdrop-blur-sm text-primary-foreground",
+                  "flex items-center gap-1 hover:bg-primary transition-colors"
+                )}
+              >
+                <Images className="h-3 w-3" />
+                {prompt.generatedImages?.length}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -127,9 +165,30 @@ export const PromptCard = ({ prompt, index, onToggleFavorite }: PromptCardProps)
       {/* Copy hint overlay */}
       <div className="absolute inset-0 flex items-center justify-center bg-primary/5 backdrop-blur-[2px] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
         <span className="text-xs font-medium text-primary bg-card/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg border border-border/50">
-          Click to copy prompt
+          {promptHasPlaceholders ? "Click to fill prompt" : "Click to copy prompt"}
         </span>
       </div>
     </div>
+
+    {/* Prompt Fill Dialog */}
+    <PromptFillDialog
+      open={showFillDialog}
+      onOpenChange={setShowFillDialog}
+      promptTitle={prompt.title}
+      promptContent={prompt.content}
+    />
+
+    {/* Image Results Dialog */}
+    {prompt.type === "image" && (
+      <ImageResultsDialog
+        open={showImageResults}
+        onOpenChange={setShowImageResults}
+        promptTitle={prompt.title}
+        promptContent={prompt.content}
+        images={prompt.generatedImages || []}
+        onCopyPrompt={handleCopy}
+      />
+    )}
+  </>
   );
 };
