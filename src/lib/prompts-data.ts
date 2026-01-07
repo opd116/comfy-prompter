@@ -1,5 +1,13 @@
 export type PromptType = "text" | "image" | "video";
 
+export interface GeneratedImage {
+  id: string;
+  url: string;
+  platform: "Midjourney" | "DALL·E" | "Stable Diffusion" | "Leonardo" | "Firefly";
+  generatedAt: string;
+  aspectRatio?: string;
+}
+
 export interface Prompt {
   id: string;
   title: string;
@@ -10,6 +18,7 @@ export interface Prompt {
   favorite?: boolean;
   previewImage?: string;
   previewVideo?: string;
+  generatedImages?: GeneratedImage[];
 }
 
 export interface TagData {
@@ -108,6 +117,29 @@ export const samplePrompts: Prompt[] = [
     category: "Creative",
     type: "image",
     previewImage: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=300&fit=crop",
+    generatedImages: [
+      {
+        id: "gi1",
+        url: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=600&fit=crop",
+        platform: "Midjourney",
+        generatedAt: "2024-01-15",
+        aspectRatio: "4:3"
+      },
+      {
+        id: "gi2",
+        url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=600&fit=crop",
+        platform: "DALL·E",
+        generatedAt: "2024-01-14",
+        aspectRatio: "4:3"
+      },
+      {
+        id: "gi3",
+        url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&h=600&fit=crop",
+        platform: "Stable Diffusion",
+        generatedAt: "2024-01-12",
+        aspectRatio: "4:3"
+      }
+    ]
   },
   {
     id: "8",
@@ -117,6 +149,22 @@ export const samplePrompts: Prompt[] = [
     category: "Creative",
     type: "image",
     previewImage: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=400&h=300&fit=crop",
+    generatedImages: [
+      {
+        id: "gi4",
+        url: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=800&h=600&fit=crop",
+        platform: "Midjourney",
+        generatedAt: "2024-01-10",
+        aspectRatio: "16:9"
+      },
+      {
+        id: "gi5",
+        url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop",
+        platform: "Leonardo",
+        generatedAt: "2024-01-08",
+        aspectRatio: "16:9"
+      }
+    ]
   },
   {
     id: "9",
@@ -126,6 +174,22 @@ export const samplePrompts: Prompt[] = [
     category: "Business",
     type: "image",
     previewImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop",
+    generatedImages: [
+      {
+        id: "gi6",
+        url: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop",
+        platform: "DALL·E",
+        generatedAt: "2024-01-05",
+        aspectRatio: "1:1"
+      },
+      {
+        id: "gi7",
+        url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop",
+        platform: "Firefly",
+        generatedAt: "2024-01-03",
+        aspectRatio: "1:1"
+      }
+    ]
   },
   {
     id: "10",
