@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowLeft } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { TagFilter } from "./TagFilter";
 import { CategoryTabs } from "./CategoryTabs";
 import { PromptCard } from "./PromptCard";
-import { samplePrompts, allTags, type Prompt } from "@/lib/prompts-data";
+import { PromptTypeSelector } from "./PromptTypeSelector";
+import { samplePrompts, allTags, type Prompt, type PromptType } from "@/lib/prompts-data";
+import { cn } from "@/lib/utils";
 
 export const PromptLibrary = () => {
+  const [selectedType, setSelectedType] = useState<PromptType | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -14,6 +17,9 @@ export const PromptLibrary = () => {
 
   const filteredPrompts = useMemo(() => {
     return prompts.filter((prompt) => {
+      // Type filter
+      const matchesType = !selectedType || prompt.type === selectedType;
+
       // Search filter
       const matchesSearch =
         search === "" ||
@@ -32,9 +38,18 @@ export const PromptLibrary = () => {
         selectedTags.length === 0 ||
         selectedTags.some((tag) => prompt.tags.includes(tag));
 
-      return matchesSearch && matchesCategory && matchesTags;
+      return matchesType && matchesSearch && matchesCategory && matchesTags;
     });
-  }, [prompts, search, selectedCategory, selectedTags]);
+  }, [prompts, selectedType, search, selectedCategory, selectedTags]);
+
+  // Get relevant tags based on selected type
+  const relevantTags = useMemo(() => {
+    if (!selectedType) return allTags;
+    
+    const typePrompts = prompts.filter(p => p.type === selectedType);
+    const tagNames = new Set(typePrompts.flatMap(p => p.tags));
+    return allTags.filter(tag => tagNames.has(tag.name));
+  }, [prompts, selectedType]);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
@@ -54,21 +69,53 @@ export const PromptLibrary = () => {
     setSelectedTags([]);
   };
 
+  const handleBack = () => {
+    setSelectedType(null);
+    clearFilters();
+  };
+
   const hasFilters = search || selectedCategory !== "All" || selectedTags.length > 0;
 
+  // Show type selector if no type is selected
+  if (!selectedType) {
+    return <PromptTypeSelector onSelect={setSelectedType} />;
+  }
+
+  const typeLabels = {
+    text: "Text Prompts",
+    image: "Image Prompts",
+    video: "Video Prompts",
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
-      <div className="text-center mb-8 animate-fade-in">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/50 rounded-full text-accent-foreground text-sm font-medium mb-4">
-          <Sparkles className="h-4 w-4" />
-          <span>Prompt Library</span>
+      <div className="mb-8 animate-fade-in">
+        {/* Back button */}
+        <button
+          onClick={handleBack}
+          className={cn(
+            "flex items-center gap-2 text-sm text-muted-foreground",
+            "hover:text-foreground transition-colors mb-6 group"
+          )}
+        >
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+          <span>All Prompt Types</span>
+        </button>
+
+        <div className="flex items-center gap-3 mb-2">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/30 backdrop-blur-sm rounded-full text-accent-foreground text-sm font-medium">
+            <Sparkles className="h-4 w-4" />
+            <span>{typeLabels[selectedType]}</span>
+          </div>
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
-          Your AI Prompts
+          Your {typeLabels[selectedType]}
         </h1>
         <p className="text-muted-foreground">
-          Quick access to your favorite prompts • Click to copy
+          {selectedType === "text" && "Quick access to your AI writing prompts • Click to copy"}
+          {selectedType === "image" && "Visual prompts for stunning AI-generated images • Click to copy"}
+          {selectedType === "video" && "Cinematic prompts for video generation • Click to copy"}
         </p>
       </div>
 
@@ -77,7 +124,7 @@ export const PromptLibrary = () => {
         <SearchBar value={search} onChange={setSearch} />
         <CategoryTabs selected={selectedCategory} onSelect={setSelectedCategory} />
         <TagFilter
-          tags={allTags}
+          tags={relevantTags}
           selectedTags={selectedTags}
           onTagToggle={handleTagToggle}
         />
@@ -100,7 +147,10 @@ export const PromptLibrary = () => {
 
       {/* Prompts Grid */}
       {filteredPrompts.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className={cn(
+          "grid gap-4",
+          selectedType === "text" ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"
+        )}>
           {filteredPrompts.map((prompt, index) => (
             <PromptCard
               key={prompt.id}
@@ -112,7 +162,7 @@ export const PromptLibrary = () => {
         </div>
       ) : (
         <div className="text-center py-16 animate-fade-in">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/30 backdrop-blur-sm flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-muted-foreground" />
           </div>
           <p className="text-muted-foreground mb-2">No prompts found</p>
@@ -127,10 +177,10 @@ export const PromptLibrary = () => {
 
       {/* Shortcut hint */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 animate-fade-in">
-        <div className="flex items-center gap-2 px-4 py-2 bg-card/80 backdrop-blur-sm border border-border/50 rounded-full shadow-lg text-xs text-muted-foreground">
-          <kbd className="px-2 py-0.5 bg-muted rounded text-[10px] font-mono">⌘</kbd>
+        <div className="flex items-center gap-2 px-4 py-2 bg-card/70 backdrop-blur-xl border border-border/30 rounded-full shadow-lg text-xs text-muted-foreground">
+          <kbd className="px-2 py-0.5 bg-muted/50 rounded text-[10px] font-mono">⌘</kbd>
           <span>+</span>
-          <kbd className="px-2 py-0.5 bg-muted rounded text-[10px] font-mono">K</kbd>
+          <kbd className="px-2 py-0.5 bg-muted/50 rounded text-[10px] font-mono">K</kbd>
           <span className="ml-1">to open</span>
         </div>
       </div>
