@@ -1,19 +1,21 @@
 import { useState, useMemo } from "react";
-import { Sparkles, ArrowLeft } from "lucide-react";
+import { Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { TagFilter } from "./TagFilter";
 import { CategoryTabs } from "./CategoryTabs";
 import { PromptCard } from "./PromptCard";
 import { PromptTypeSelector } from "./PromptTypeSelector";
-import { samplePrompts, allTags, type Prompt, type PromptType } from "@/lib/prompts-data";
+import { DataManagement } from "./DataManagement";
+import { useLocalData } from "@/hooks/useLocalData";
+import { allTags, type PromptType } from "@/lib/prompts-data";
 import { cn } from "@/lib/utils";
 
 export const PromptLibrary = () => {
+  const { prompts, tags, loading, reload, toggleFavorite } = useLocalData();
   const [selectedType, setSelectedType] = useState<PromptType | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [prompts, setPrompts] = useState<Prompt[]>(samplePrompts);
 
   const filteredPrompts = useMemo(() => {
     return prompts.filter((prompt) => {
@@ -42,14 +44,17 @@ export const PromptLibrary = () => {
     });
   }, [prompts, selectedType, search, selectedCategory, selectedTags]);
 
+  // Use local tags or fallback to allTags if empty
+  const availableTags = tags.length > 0 ? tags : allTags;
+
   // Get relevant tags based on selected type
   const relevantTags = useMemo(() => {
-    if (!selectedType) return allTags;
+    if (!selectedType) return availableTags;
     
     const typePrompts = prompts.filter(p => p.type === selectedType);
     const tagNames = new Set(typePrompts.flatMap(p => p.tags));
-    return allTags.filter(tag => tagNames.has(tag.name));
-  }, [prompts, selectedType]);
+    return availableTags.filter(tag => tagNames.has(tag.name));
+  }, [prompts, selectedType, availableTags]);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
@@ -58,9 +63,7 @@ export const PromptLibrary = () => {
   };
 
   const handleToggleFavorite = (id: string) => {
-    setPrompts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p))
-    );
+    toggleFavorite(id);
   };
 
   const clearFilters = () => {
@@ -76,9 +79,26 @@ export const PromptLibrary = () => {
 
   const hasFilters = search || selectedCategory !== "All" || selectedTags.length > 0;
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">Loading your prompts...</p>
+      </div>
+    );
+  }
+
   // Show type selector if no type is selected
   if (!selectedType) {
-    return <PromptTypeSelector onSelect={setSelectedType} />;
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <DataManagement onDataChanged={reload} />
+        </div>
+        <PromptTypeSelector onSelect={setSelectedType} />
+      </div>
+    );
   }
 
   const typeLabels = {
@@ -91,17 +111,20 @@ export const PromptLibrary = () => {
     <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8 animate-fade-in">
-        {/* Back button */}
-        <button
-          onClick={handleBack}
-          className={cn(
-            "flex items-center gap-2 text-sm text-muted-foreground",
-            "hover:text-foreground transition-colors mb-6 group"
-          )}
-        >
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          <span>All Prompt Types</span>
-        </button>
+        {/* Top bar with back and data management */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={handleBack}
+            className={cn(
+              "flex items-center gap-2 text-sm text-muted-foreground",
+              "hover:text-foreground transition-colors group"
+            )}
+          >
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <span>All Prompt Types</span>
+          </button>
+          <DataManagement onDataChanged={reload} />
+        </div>
 
         <div className="flex items-center gap-3 mb-2">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/30 backdrop-blur-sm rounded-full text-accent-foreground text-sm font-medium">
