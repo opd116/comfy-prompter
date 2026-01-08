@@ -1,48 +1,48 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { TagFilter } from "./TagFilter";
 import { CategoryTabs } from "./CategoryTabs";
-import { PromptCard } from "./PromptCard";
+import { VirtualizedPromptGrid } from "./VirtualizedPromptGrid";
 import { PromptTypeSelector } from "./PromptTypeSelector";
 import { DataManagement } from "./DataManagement";
+import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { useLocalData } from "@/hooks/useLocalData";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useSearchIndex } from "@/hooks/useSearchIndex";
+import { usePerformance } from "@/contexts/PerformanceContext";
 import { allTags, type PromptType } from "@/lib/prompts-data";
 import { cn } from "@/lib/utils";
 
 export const PromptLibrary = () => {
   const { prompts, tags, loading, reload, toggleFavorite } = useLocalData();
+  const { updateMetric } = usePerformance();
   const [selectedType, setSelectedType] = useState<PromptType | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const filteredPrompts = useMemo(() => {
-    return prompts.filter((prompt) => {
-      // Type filter
-      const matchesType = !selectedType || prompt.type === selectedType;
+  // Debounce search for instant feel
+  const debouncedSearch = useDebounce(search, 150);
 
-      // Search filter
-      const matchesSearch =
-        search === "" ||
-        prompt.title.toLowerCase().includes(search.toLowerCase()) ||
-        prompt.content.toLowerCase().includes(search.toLowerCase()) ||
-        prompt.tags.some((tag) =>
-          tag.toLowerCase().includes(search.toLowerCase())
-        );
+  // Use lightweight search index
+  const { search: searchIndex } = useSearchIndex(prompts);
 
-      // Category filter
-      const matchesCategory =
-        selectedCategory === "All" || prompt.category === selectedCategory;
-
-      // Tags filter
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.some((tag) => prompt.tags.includes(tag));
-
-      return matchesType && matchesSearch && matchesCategory && matchesTags;
+  // Memoized filtered prompts using the search index
+  const { filteredPrompts, searchTimeMs } = useMemo(() => {
+    const { results, searchTimeMs } = searchIndex({
+      search: debouncedSearch,
+      selectedType,
+      selectedCategory,
+      selectedTags,
     });
-  }, [prompts, selectedType, search, selectedCategory, selectedTags]);
+    return { filteredPrompts: results, searchTimeMs };
+  }, [searchIndex, debouncedSearch, selectedType, selectedCategory, selectedTags]);
+
+  // Update performance metrics
+  useEffect(() => {
+    updateMetric("searchTimeMs", searchTimeMs);
+  }, [searchTimeMs, updateMetric]);
 
   // Use local tags or fallback to allTags if empty
   const availableTags = tags.length > 0 ? tags : allTags;
@@ -56,26 +56,26 @@ export const PromptLibrary = () => {
     return availableTags.filter(tag => tagNames.has(tag.name));
   }, [prompts, selectedType, availableTags]);
 
-  const handleTagToggle = (tag: string) => {
+  const handleTagToggle = useCallback((tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
-  };
+  }, []);
 
-  const handleToggleFavorite = (id: string) => {
+  const handleToggleFavorite = useCallback((id: string) => {
     toggleFavorite(id);
-  };
+  }, [toggleFavorite]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearch("");
     setSelectedCategory("All");
     setSelectedTags([]);
-  };
+  }, []);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setSelectedType(null);
     clearFilters();
-  };
+  }, [clearFilters]);
 
   const hasFilters = search || selectedCategory !== "All" || selectedTags.length > 0;
 
@@ -97,6 +97,7 @@ export const PromptLibrary = () => {
           <DataManagement onDataChanged={reload} />
         </div>
         <PromptTypeSelector onSelect={setSelectedType} />
+        <PerformanceDebugPanel />
       </div>
     );
   }
@@ -110,7 +111,7 @@ export const PromptLibrary = () => {
   return (
     <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-8 animate-fade-in">
+      <div className="mb-8">
         {/* Top bar with back and data management */}
         <div className="flex items-center justify-between mb-6">
           <button
@@ -170,21 +171,13 @@ export const PromptLibrary = () => {
 
       {/* Prompts Grid */}
       {filteredPrompts.length > 0 ? (
-        <div className={cn(
-          "grid gap-4",
-          selectedType === "text" ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"
-        )}>
-          {filteredPrompts.map((prompt, index) => (
-            <PromptCard
-              key={prompt.id}
-              prompt={prompt}
-              index={index}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          ))}
-        </div>
+        <VirtualizedPromptGrid
+          prompts={filteredPrompts}
+          promptType={selectedType}
+          onToggleFavorite={handleToggleFavorite}
+        />
       ) : (
-        <div className="text-center py-16 animate-fade-in">
+        <div className="text-center py-16">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/30 backdrop-blur-sm flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-muted-foreground" />
           </div>
@@ -199,7 +192,7 @@ export const PromptLibrary = () => {
       )}
 
       {/* Shortcut hint */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 animate-fade-in">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2">
         <div className="flex items-center gap-2 px-4 py-2 bg-card/70 backdrop-blur-xl border border-border/30 rounded-full shadow-lg text-xs text-muted-foreground">
           <kbd className="px-2 py-0.5 bg-muted/50 rounded text-[10px] font-mono">⌘</kbd>
           <span>+</span>
@@ -207,6 +200,8 @@ export const PromptLibrary = () => {
           <span className="ml-1">to open</span>
         </div>
       </div>
+
+      <PerformanceDebugPanel />
     </div>
   );
 };
