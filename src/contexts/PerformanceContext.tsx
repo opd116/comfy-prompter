@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
 
 interface PerformanceMetrics {
   searchTimeMs: number;
@@ -6,15 +6,22 @@ interface PerformanceMetrics {
   imageLoadCount: number;
 }
 
-interface PerformanceContextType {
-  debugEnabled: boolean;
+interface PerformanceActions {
   toggleDebug: () => void;
-  metrics: PerformanceMetrics;
   updateMetric: <K extends keyof PerformanceMetrics>(key: K, value: PerformanceMetrics[K]) => void;
   incrementImageLoads: () => void;
 }
 
-const PerformanceContext = createContext<PerformanceContextType | null>(null);
+interface PerformanceState {
+  debugEnabled: boolean;
+  metrics: PerformanceMetrics;
+}
+
+// Split context into State and Actions to prevent unnecessary re-renders.
+// Components that only need to dispatch actions (like LazyImage) won't re-render
+// when metrics update, improving performance during high-frequency updates.
+const PerformanceStateContext = createContext<PerformanceState | null>(null);
+const PerformanceActionsContext = createContext<PerformanceActions | null>(null);
 
 export function PerformanceProvider({ children }: { children: ReactNode }) {
   const [debugEnabled, setDebugEnabled] = useState(false);
@@ -37,19 +44,37 @@ export function PerformanceProvider({ children }: { children: ReactNode }) {
     setMetrics((prev) => ({ ...prev, imageLoadCount: prev.imageLoadCount + 1 }));
   }, []);
 
+  const state = useMemo(() => ({ debugEnabled, metrics }), [debugEnabled, metrics]);
+  const actions = useMemo(() => ({ toggleDebug, updateMetric, incrementImageLoads }), [toggleDebug, updateMetric, incrementImageLoads]);
+
   return (
-    <PerformanceContext.Provider
-      value={{ debugEnabled, toggleDebug, metrics, updateMetric, incrementImageLoads }}
-    >
-      {children}
-    </PerformanceContext.Provider>
+    <PerformanceActionsContext.Provider value={actions}>
+      <PerformanceStateContext.Provider value={state}>
+        {children}
+      </PerformanceStateContext.Provider>
+    </PerformanceActionsContext.Provider>
   );
 }
 
-export function usePerformance() {
-  const context = useContext(PerformanceContext);
+export function usePerformanceState() {
+  const context = useContext(PerformanceStateContext);
   if (!context) {
-    throw new Error("usePerformance must be used within a PerformanceProvider");
+    throw new Error("usePerformanceState must be used within a PerformanceProvider");
   }
   return context;
+}
+
+export function usePerformanceActions() {
+  const context = useContext(PerformanceActionsContext);
+  if (!context) {
+    throw new Error("usePerformanceActions must be used within a PerformanceProvider");
+  }
+  return context;
+}
+
+// Deprecated: use usePerformanceState or usePerformanceActions instead
+export function usePerformance() {
+  const state = usePerformanceState();
+  const actions = usePerformanceActions();
+  return { ...state, ...actions };
 }
