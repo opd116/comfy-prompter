@@ -1,4 +1,4 @@
-import { useState, memo, useCallback } from "react";
+import { useState, memo, useCallback, useMemo } from "react";
 import { Copy, Check, Star, Play, Images } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Prompt } from "@/lib/prompts-data";
@@ -22,8 +22,14 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
   const [showFillDialog, setShowFillDialog] = useState(false);
   const [showImageResults, setShowImageResults] = useState(false);
 
+  // Lazy load states for dialogs
+  const [fillDialogLoaded, setFillDialogLoaded] = useState(false);
+  const [imageResultsLoaded, setImageResultsLoaded] = useState(false);
+
   const hasVisualPreview = prompt.type === "image" || prompt.type === "video";
-  const promptHasPlaceholders = hasPlaceholders(prompt.content);
+
+  // Memoize regex check
+  const promptHasPlaceholders = useMemo(() => hasPlaceholders(prompt.content), [prompt.content]);
   const hasGeneratedImages = prompt.generatedImages && prompt.generatedImages.length > 0;
 
   const handleCopy = useCallback(async () => {
@@ -38,6 +44,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleCardClick = useCallback(() => {
     if (promptHasPlaceholders) {
+      setFillDialogLoaded(true);
       setShowFillDialog(true);
     } else {
       handleCopy();
@@ -46,6 +53,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleViewResults = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    setImageResultsLoaded(true);
     setShowImageResults(true);
   }, []);
 
@@ -173,16 +181,18 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
         </div>
       </div>
 
-      {/* Prompt Fill Dialog */}
-      <PromptFillDialog
-        open={showFillDialog}
-        onOpenChange={setShowFillDialog}
-        promptTitle={prompt.title}
-        promptContent={prompt.content}
-      />
+      {/* Prompt Fill Dialog - Lazy rendered */}
+      {fillDialogLoaded && (
+        <PromptFillDialog
+          open={showFillDialog}
+          onOpenChange={setShowFillDialog}
+          promptTitle={prompt.title}
+          promptContent={prompt.content}
+        />
+      )}
 
-      {/* Image Results Dialog */}
-      {prompt.type === "image" && (
+      {/* Image Results Dialog - Lazy rendered */}
+      {prompt.type === "image" && imageResultsLoaded && (
         <ImageResultsDialog
           open={showImageResults}
           onOpenChange={setShowImageResults}
