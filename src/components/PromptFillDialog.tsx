@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowRight, ArrowLeft, Check, Copy, Sparkles } from "lucide-react";
 import {
   Dialog,
@@ -79,7 +79,8 @@ export const PromptFillDialog = ({
   const [customInput, setCustomInput] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const placeholders = extractPlaceholders(promptContent);
+  // Memoize placeholders extraction to prevent regex loop on every render
+  const placeholders = useMemo(() => extractPlaceholders(promptContent), [promptContent]);
   const totalSteps = placeholders.length;
   const currentPlaceholder = placeholders[currentStep];
   const isLastStep = currentStep === totalSteps - 1;
