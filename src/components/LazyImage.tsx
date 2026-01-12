@@ -5,6 +5,35 @@ import { cn } from "@/lib/utils";
 // Simple in-memory cache for loaded images
 const imageCache = new Set<string>();
 
+// Shared observer pattern for better performance
+// We only need one observer for all lazy images instead of one per image
+const listeners = new Map<Element, () => void>();
+let observer: IntersectionObserver | null = null;
+
+function getObserver() {
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const listener = listeners.get(entry.target);
+            if (listener) {
+              listener();
+            }
+            // Once intersected, we stop observing this specific element
+            if (observer && entry.target) {
+              observer.unobserve(entry.target);
+              listeners.delete(entry.target);
+            }
+          }
+        });
+      },
+      { rootMargin: "100px" }
+    );
+  }
+  return observer;
+}
+
 interface LazyImageProps {
   src: string;
   alt: string;
@@ -15,25 +44,35 @@ export const LazyImage = memo(function LazyImage({ src, alt, className }: LazyIm
   const [loaded, setLoaded] = useState(() => imageCache.has(src));
   const [inView, setInView] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
-  const { incrementImageLoads, debugEnabled } = usePerformance();
+  const { incrementImageLoads } = usePerformance();
 
   // Intersection Observer for lazy loading
   useEffect(() => {
-    if (!imgRef.current) return;
+    // If already in view or loaded (from cache), no need to observe
+    if (inView || loaded) {
+      if (!inView) setInView(true);
+      return;
+    }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "100px" }
-    );
+    const element = imgRef.current;
+    if (!element) return;
 
-    observer.observe(imgRef.current);
-    return () => observer.disconnect();
-  }, []);
+    const observer = getObserver();
+
+    // Register listener
+    listeners.set(element, () => {
+      setInView(true);
+    });
+
+    observer.observe(element);
+
+    return () => {
+      if (observer) {
+        observer.unobserve(element);
+        listeners.delete(element);
+      }
+    };
+  }, [inView, loaded]);
 
   const handleLoad = () => {
     if (!imageCache.has(src)) {
