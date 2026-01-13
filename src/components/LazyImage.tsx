@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { usePerformance } from "@/contexts/PerformanceContext";
 import { cn } from "@/lib/utils";
+import { lazyImageObserver } from "@/lib/intersection-observer";
 
 // Simple in-memory cache for loaded images
 const imageCache = new Set<string>();
@@ -21,18 +22,17 @@ export const LazyImage = memo(function LazyImage({ src, alt, className }: LazyIm
   useEffect(() => {
     if (!imgRef.current) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "100px" }
-    );
+    // Use shared observer
+    const element = imgRef.current;
+    lazyImageObserver.observe(element, () => {
+      setInView(true);
+    });
 
-    observer.observe(imgRef.current);
-    return () => observer.disconnect();
+    return () => {
+      if (element) {
+        lazyImageObserver.unobserve(element);
+      }
+    };
   }, []);
 
   const handleLoad = () => {
