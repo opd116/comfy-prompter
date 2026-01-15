@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import type { Prompt, PromptType } from "@/lib/prompts-data";
 
 interface SearchIndex {
@@ -15,13 +15,47 @@ interface FilterOptions {
 }
 
 export function useSearchIndex(prompts: Prompt[]) {
+  // Cache for search text to avoid recomputing on every render
+  const cacheRef = useRef<Map<string, { searchText: string, prompt: Prompt }>>(new Map());
+
   // Build a lightweight search index
   const index = useMemo<SearchIndex[]>(() => {
-    return prompts.map((prompt) => ({
-      id: prompt.id,
-      searchText: `${prompt.title} ${prompt.tags.join(" ")} ${prompt.content}`.toLowerCase(),
-      prompt,
-    }));
+    const cache = cacheRef.current;
+
+    return prompts.map((prompt) => {
+      const cached = cache.get(prompt.id);
+
+      // Optimization: Reuse cached searchText if content hasn't changed.
+      // This avoids expensive string operations when only 'favorite' or other non-search fields change.
+      // We assume tags array reference is stable if content hasn't changed (which is true for useLocalData updates).
+      if (
+        cached &&
+        cached.prompt.title === prompt.title &&
+        cached.prompt.content === prompt.content &&
+        cached.prompt.tags === prompt.tags
+      ) {
+        // Update cache with new prompt reference so future comparisons work correctly
+        cache.set(prompt.id, { searchText: cached.searchText, prompt });
+
+        return {
+          id: prompt.id,
+          searchText: cached.searchText,
+          prompt,
+        };
+      }
+
+      // Compute new search text
+      const searchText = `${prompt.title} ${prompt.tags.join(" ")} ${prompt.content}`.toLowerCase();
+
+      // Update cache
+      cache.set(prompt.id, { searchText, prompt });
+
+      return {
+        id: prompt.id,
+        searchText,
+        prompt,
+      };
+    });
   }, [prompts]);
 
   // Fast search function
