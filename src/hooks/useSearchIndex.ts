@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import type { Prompt, PromptType } from "@/lib/prompts-data";
 
 interface SearchIndex {
@@ -15,13 +15,25 @@ interface FilterOptions {
 }
 
 export function useSearchIndex(prompts: Prompt[]) {
+  // Cache for search index entries to avoid expensive string operations on every render
+  const cacheRef = useRef(new WeakMap<Prompt, SearchIndex>());
+
   // Build a lightweight search index
   const index = useMemo<SearchIndex[]>(() => {
-    return prompts.map((prompt) => ({
-      id: prompt.id,
-      searchText: `${prompt.title} ${prompt.tags.join(" ")} ${prompt.content}`.toLowerCase(),
-      prompt,
-    }));
+    const cache = cacheRef.current;
+
+    return prompts.map((prompt) => {
+      let item = cache.get(prompt);
+      if (!item) {
+        item = {
+          id: prompt.id,
+          searchText: `${prompt.title} ${prompt.tags.join(" ")} ${prompt.content}`.toLowerCase(),
+          prompt,
+        };
+        cache.set(prompt, item);
+      }
+      return item;
+    });
   }, [prompts]);
 
   // Fast search function
