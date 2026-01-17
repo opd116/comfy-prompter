@@ -5,6 +5,44 @@ import { cn } from "@/lib/utils";
 // Simple in-memory cache for loaded images
 const imageCache = new Set<string>();
 
+// Shared Observer implementation to reduce memory overhead
+class ImageObserver {
+  private observer: IntersectionObserver | null = null;
+  private callbacks = new Map<Element, () => void>();
+
+  private getObserver() {
+    if (!this.observer) {
+      this.observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const callback = this.callbacks.get(entry.target);
+              if (callback) {
+                callback();
+                this.unobserve(entry.target);
+              }
+            }
+          });
+        },
+        { rootMargin: "100px" }
+      );
+    }
+    return this.observer;
+  }
+
+  observe(element: Element, callback: () => void) {
+    this.callbacks.set(element, callback);
+    this.getObserver().observe(element);
+  }
+
+  unobserve(element: Element) {
+    this.callbacks.delete(element);
+    this.observer?.unobserve(element);
+  }
+}
+
+const sharedObserver = new ImageObserver();
+
 interface LazyImageProps {
   src: string;
   alt: string;
@@ -15,25 +53,21 @@ export const LazyImage = memo(function LazyImage({ src, alt, className }: LazyIm
   const [loaded, setLoaded] = useState(() => imageCache.has(src));
   const [inView, setInView] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
-  const { incrementImageLoads, debugEnabled } = usePerformance();
+  const { incrementImageLoads } = usePerformance();
 
-  // Intersection Observer for lazy loading
+  // Shared Intersection Observer for lazy loading
   useEffect(() => {
-    if (!imgRef.current) return;
+    const element = imgRef.current;
+    if (!element || inView) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "100px" }
-    );
+    sharedObserver.observe(element, () => {
+      setInView(true);
+    });
 
-    observer.observe(imgRef.current);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      sharedObserver.unobserve(element);
+    };
+  }, [inView]);
 
   const handleLoad = () => {
     if (!imageCache.has(src)) {
