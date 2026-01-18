@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ArrowRight, ArrowLeft, Check, Copy, Sparkles } from "lucide-react";
 import {
   Dialog,
@@ -79,7 +79,7 @@ export const PromptFillDialog = ({
   const [customInput, setCustomInput] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const placeholders = extractPlaceholders(promptContent);
+  const placeholders = useMemo(() => extractPlaceholders(promptContent), [promptContent]);
   const totalSteps = placeholders.length;
   const currentPlaceholder = placeholders[currentStep];
   const isLastStep = currentStep === totalSteps - 1;
@@ -96,13 +96,13 @@ export const PromptFillDialog = ({
   }, [open]);
 
   // Generate the final prompt with filled values
-  const generateFinalPrompt = () => {
+  const finalPrompt = useMemo(() => {
     let result = promptContent;
     for (const [placeholder, value] of Object.entries(answers)) {
       result = result.replace(placeholder, value);
     }
     return result;
-  };
+  }, [promptContent, answers]);
 
   const handleSelectOption = (option: string) => {
     setAnswers((prev) => ({
@@ -142,7 +142,6 @@ export const PromptFillDialog = ({
   };
 
   const handleCopyFinal = async () => {
-    const finalPrompt = generateFinalPrompt();
     await navigator.clipboard.writeText(finalPrompt);
     setCopied(true);
     toast.success("Complete prompt copied to clipboard!", {
@@ -276,7 +275,7 @@ export const PromptFillDialog = ({
             {/* Preview */}
             <div className="bg-secondary/30 border border-border/30 rounded-xl p-4 max-h-48 overflow-y-auto">
               <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
-                {generateFinalPrompt()}
+                {finalPrompt}
               </pre>
             </div>
 
