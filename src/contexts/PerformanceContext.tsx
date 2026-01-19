@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
 
 interface PerformanceMetrics {
   searchTimeMs: number;
@@ -6,15 +6,19 @@ interface PerformanceMetrics {
   imageLoadCount: number;
 }
 
-interface PerformanceContextType {
+interface PerformanceStateContextType {
   debugEnabled: boolean;
-  toggleDebug: () => void;
   metrics: PerformanceMetrics;
+}
+
+interface PerformanceActionsContextType {
+  toggleDebug: () => void;
   updateMetric: <K extends keyof PerformanceMetrics>(key: K, value: PerformanceMetrics[K]) => void;
   incrementImageLoads: () => void;
 }
 
-const PerformanceContext = createContext<PerformanceContextType | null>(null);
+const PerformanceStateContext = createContext<PerformanceStateContextType | null>(null);
+const PerformanceActionsContext = createContext<PerformanceActionsContextType | null>(null);
 
 export function PerformanceProvider({ children }: { children: ReactNode }) {
   const [debugEnabled, setDebugEnabled] = useState(false);
@@ -37,19 +41,42 @@ export function PerformanceProvider({ children }: { children: ReactNode }) {
     setMetrics((prev) => ({ ...prev, imageLoadCount: prev.imageLoadCount + 1 }));
   }, []);
 
+  const stateValue = useMemo(() => ({ debugEnabled, metrics }), [debugEnabled, metrics]);
+
+  const actionsValue = useMemo(() => ({
+    toggleDebug,
+    updateMetric,
+    incrementImageLoads
+  }), [toggleDebug, updateMetric, incrementImageLoads]);
+
   return (
-    <PerformanceContext.Provider
-      value={{ debugEnabled, toggleDebug, metrics, updateMetric, incrementImageLoads }}
-    >
-      {children}
-    </PerformanceContext.Provider>
+    <PerformanceActionsContext.Provider value={actionsValue}>
+      <PerformanceStateContext.Provider value={stateValue}>
+        {children}
+      </PerformanceStateContext.Provider>
+    </PerformanceActionsContext.Provider>
   );
 }
 
-export function usePerformance() {
-  const context = useContext(PerformanceContext);
+export function usePerformanceState() {
+  const context = useContext(PerformanceStateContext);
   if (!context) {
-    throw new Error("usePerformance must be used within a PerformanceProvider");
+    throw new Error("usePerformanceState must be used within a PerformanceProvider");
   }
   return context;
+}
+
+export function usePerformanceActions() {
+  const context = useContext(PerformanceActionsContext);
+  if (!context) {
+    throw new Error("usePerformanceActions must be used within a PerformanceProvider");
+  }
+  return context;
+}
+
+// Legacy hook that returns everything (causes re-renders on state changes)
+export function usePerformance() {
+  const state = usePerformanceState();
+  const actions = usePerformanceActions();
+  return { ...state, ...actions };
 }
