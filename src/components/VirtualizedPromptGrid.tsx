@@ -1,7 +1,7 @@
 import { useRef, useEffect, memo, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PromptCard } from "./PromptCard";
-import { usePerformance } from "@/contexts/PerformanceContext";
+import { usePerformanceActions } from "@/contexts/PerformanceContext";
 import type { Prompt, PromptType } from "@/lib/prompts-data";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ export const VirtualizedPromptGrid = memo(function VirtualizedPromptGrid({
   promptType,
   onToggleFavorite,
 }: VirtualizedPromptGridProps) {
-  const { updateMetric } = usePerformance();
+  const { updateMetric } = usePerformanceActions();
   const parentRef = useRef<HTMLDivElement>(null);
   const renderStartRef = useRef<number>(0);
 
