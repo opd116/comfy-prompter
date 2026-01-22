@@ -1,9 +1,10 @@
-import { usePerformance } from "@/contexts/PerformanceContext";
+import { usePerformanceActions, usePerformanceState } from "@/contexts/PerformanceContext";
 import { Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const PerformanceDebugPanel = () => {
-  const { debugEnabled, toggleDebug, metrics } = usePerformance();
+  const { debugEnabled, metrics } = usePerformanceState();
+  const { toggleDebug } = usePerformanceActions();
 
   return (
     <>
