@@ -10,13 +10,13 @@ import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { useLocalData } from "@/hooks/useLocalData";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSearchIndex } from "@/hooks/useSearchIndex";
-import { usePerformance } from "@/contexts/PerformanceContext";
+import { usePerformanceActions } from "@/contexts/PerformanceContext";
 import { allTags, type PromptType } from "@/lib/prompts-data";
 import { cn } from "@/lib/utils";
 
 export const PromptLibrary = () => {
   const { prompts, tags, loading, reload, toggleFavorite } = useLocalData();
-  const { updateMetric } = usePerformance();
+  const { updateMetric } = usePerformanceActions();
   const [selectedType, setSelectedType] = useState<PromptType | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");

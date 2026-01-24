@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { usePerformance } from "@/contexts/PerformanceContext";
+import { usePerformanceActions } from "@/contexts/PerformanceContext";
 import { cn } from "@/lib/utils";
 
 // Simple in-memory cache for loaded images
@@ -15,7 +15,7 @@ export const LazyImage = memo(function LazyImage({ src, alt, className }: LazyIm
   const [loaded, setLoaded] = useState(() => imageCache.has(src));
   const [inView, setInView] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
-  const { incrementImageLoads, debugEnabled } = usePerformance();
+  const { incrementImageLoads, debugEnabled } = usePerformanceActions();
 
   // Intersection Observer for lazy loading
   useEffect(() => {
