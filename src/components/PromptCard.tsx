@@ -22,6 +22,10 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
   const [showFillDialog, setShowFillDialog] = useState(false);
   const [showImageResults, setShowImageResults] = useState(false);
 
+  // Lazy load dialogs to improve list performance
+  const [fillDialogMounted, setFillDialogMounted] = useState(false);
+  const [resultsDialogMounted, setResultsDialogMounted] = useState(false);
+
   const hasVisualPreview = prompt.type === "image" || prompt.type === "video";
   const promptHasPlaceholders = hasPlaceholders(prompt.content);
   const hasGeneratedImages = prompt.generatedImages && prompt.generatedImages.length > 0;
@@ -38,6 +42,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleCardClick = useCallback(() => {
     if (promptHasPlaceholders) {
+      setFillDialogMounted(true);
       setShowFillDialog(true);
     } else {
       handleCopy();
@@ -46,6 +51,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleViewResults = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    setResultsDialogMounted(true);
     setShowImageResults(true);
   }, []);
 
@@ -174,15 +180,17 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
       </div>
 
       {/* Prompt Fill Dialog */}
-      <PromptFillDialog
-        open={showFillDialog}
-        onOpenChange={setShowFillDialog}
-        promptTitle={prompt.title}
-        promptContent={prompt.content}
-      />
+      {(fillDialogMounted || showFillDialog) && (
+        <PromptFillDialog
+          open={showFillDialog}
+          onOpenChange={setShowFillDialog}
+          promptTitle={prompt.title}
+          promptContent={prompt.content}
+        />
+      )}
 
       {/* Image Results Dialog */}
-      {prompt.type === "image" && (
+      {prompt.type === "image" && (resultsDialogMounted || showImageResults) && (
         <ImageResultsDialog
           open={showImageResults}
           onOpenChange={setShowImageResults}
