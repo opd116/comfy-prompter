@@ -22,6 +22,10 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
   const [showFillDialog, setShowFillDialog] = useState(false);
   const [showImageResults, setShowImageResults] = useState(false);
 
+  // Lazy mount dialogs to improve performance by avoiding initialization of heavy components until needed
+  const [fillDialogMounted, setFillDialogMounted] = useState(false);
+  const [resultsDialogMounted, setResultsDialogMounted] = useState(false);
+
   const hasVisualPreview = prompt.type === "image" || prompt.type === "video";
   const promptHasPlaceholders = hasPlaceholders(prompt.content);
   const hasGeneratedImages = prompt.generatedImages && prompt.generatedImages.length > 0;
@@ -38,6 +42,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleCardClick = useCallback(() => {
     if (promptHasPlaceholders) {
+      setFillDialogMounted(true);
       setShowFillDialog(true);
     } else {
       handleCopy();
@@ -46,6 +51,7 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
 
   const handleViewResults = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    setResultsDialogMounted(true);
     setShowImageResults(true);
   }, []);
 
@@ -173,16 +179,18 @@ export const PromptCard = memo(function PromptCard({ prompt, onToggleFavorite }:
         </div>
       </div>
 
-      {/* Prompt Fill Dialog */}
-      <PromptFillDialog
-        open={showFillDialog}
-        onOpenChange={setShowFillDialog}
-        promptTitle={prompt.title}
-        promptContent={prompt.content}
-      />
+      {/* Prompt Fill Dialog - Lazy loaded to prevent heavy regex parsing on initial render */}
+      {fillDialogMounted && (
+        <PromptFillDialog
+          open={showFillDialog}
+          onOpenChange={setShowFillDialog}
+          promptTitle={prompt.title}
+          promptContent={prompt.content}
+        />
+      )}
 
-      {/* Image Results Dialog */}
-      {prompt.type === "image" && (
+      {/* Image Results Dialog - Lazy loaded to reduce DOM nodes and initial render weight */}
+      {prompt.type === "image" && resultsDialogMounted && (
         <ImageResultsDialog
           open={showImageResults}
           onOpenChange={setShowImageResults}
