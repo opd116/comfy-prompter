@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import type { TagData } from "@/lib/prompts-data";
 
@@ -7,7 +8,8 @@ interface TagFilterProps {
   onTagToggle: (tag: string) => void;
 }
 
-export const TagFilter = ({ tags, selectedTags, onTagToggle }: TagFilterProps) => {
+// Memoized to efficiently handle large lists of tags without re-rendering on search typing
+export const TagFilter = memo(({ tags, selectedTags, onTagToggle }: TagFilterProps) => {
   return (
     <div className="flex flex-wrap gap-2">
       {tags.map((tag, index) => {
@@ -43,4 +45,6 @@ export const TagFilter = ({ tags, selectedTags, onTagToggle }: TagFilterProps) =
       })}
     </div>
   );
-};
+});
+
+TagFilter.displayName = "TagFilter";

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { categories } from "@/lib/prompts-data";
 
@@ -6,7 +7,8 @@ interface CategoryTabsProps {
   onSelect: (category: string) => void;
 }
 
-export const CategoryTabs = ({ selected, onSelect }: CategoryTabsProps) => {
+// Memoized to prevent re-renders when parent updates unrelated state
+export const CategoryTabs = memo(({ selected, onSelect }: CategoryTabsProps) => {
   return (
     <div className="flex gap-1 p-1 bg-muted/40 rounded-xl overflow-x-auto scrollbar-hide">
       {categories.map((category) => (
@@ -26,4 +28,6 @@ export const CategoryTabs = ({ selected, onSelect }: CategoryTabsProps) => {
       ))}
     </div>
   );
-};
+});
+
+CategoryTabs.displayName = "CategoryTabs";

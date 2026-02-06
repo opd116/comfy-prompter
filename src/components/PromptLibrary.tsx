@@ -8,7 +8,6 @@ import { PromptTypeSelector } from "./PromptTypeSelector";
 import { DataManagement } from "./DataManagement";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { useLocalData } from "@/hooks/useLocalData";
-import { useDebounce } from "@/hooks/useDebounce";
 import { useSearchIndex } from "@/hooks/useSearchIndex";
 import { usePerformance } from "@/contexts/PerformanceContext";
 import { allTags, type PromptType } from "@/lib/prompts-data";
@@ -18,12 +17,12 @@ export const PromptLibrary = () => {
   const { prompts, tags, loading, reload, toggleFavorite } = useLocalData();
   const { updateMetric } = usePerformance();
   const [selectedType, setSelectedType] = useState<PromptType | null>(null);
-  const [search, setSearch] = useState("");
+  // Store only the debounced search query to prevent excessive re-renders
+  const [searchQuery, setSearchQuery] = useState("");
+  // Key to force reset of SearchBar internal state
+  const [searchResetKey, setSearchResetKey] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  // Debounce search for instant feel
-  const debouncedSearch = useDebounce(search, 150);
 
   // Use lightweight search index
   const { search: searchIndex } = useSearchIndex(prompts);
@@ -31,13 +30,13 @@ export const PromptLibrary = () => {
   // Memoized filtered prompts using the search index
   const { filteredPrompts, searchTimeMs } = useMemo(() => {
     const { results, searchTimeMs } = searchIndex({
-      search: debouncedSearch,
+      search: searchQuery,
       selectedType,
       selectedCategory,
       selectedTags,
     });
     return { filteredPrompts: results, searchTimeMs };
-  }, [searchIndex, debouncedSearch, selectedType, selectedCategory, selectedTags]);
+  }, [searchIndex, searchQuery, selectedType, selectedCategory, selectedTags]);
 
   // Update performance metrics
   useEffect(() => {
@@ -67,7 +66,8 @@ export const PromptLibrary = () => {
   }, [toggleFavorite]);
 
   const clearFilters = useCallback(() => {
-    setSearch("");
+    setSearchQuery("");
+    setSearchResetKey(prev => prev + 1);
     setSelectedCategory("All");
     setSelectedTags([]);
   }, []);
@@ -77,7 +77,7 @@ export const PromptLibrary = () => {
     clearFilters();
   }, [clearFilters]);
 
-  const hasFilters = search || selectedCategory !== "All" || selectedTags.length > 0;
+  const hasFilters = searchQuery || selectedCategory !== "All" || selectedTags.length > 0;
 
   // Loading state
   if (loading) {
@@ -145,7 +145,7 @@ export const PromptLibrary = () => {
 
       {/* Search & Filters */}
       <div className="space-y-4 mb-6">
-        <SearchBar value={search} onChange={setSearch} />
+        <SearchBar key={searchResetKey} onSearch={setSearchQuery} />
         <CategoryTabs selected={selectedCategory} onSelect={setSelectedCategory} />
         <TagFilter
           tags={relevantTags}
